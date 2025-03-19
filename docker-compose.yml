@@ -1,0 +1,54 @@
+services:
+  postgres:
+    build:
+      context: ./DB
+      dockerfile: Dockerfile
+    container_name: romeo_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: romeo
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - romeo_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "romeo"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Optionally add pgadmin for database management
+  # TODO: Modify the base image to latest version
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: romeo_pgadmin
+  #   restart: unless-stopped
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@example.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #     PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   networks:
+  #     - romeo_network
+  #   depends_on:
+  #     - postgres
+
+volumes:
+  postgres_data:
+    name: romeo_postgres_data
+  # pgadmin_data:
+  #   name: romeo_pgadmin_data
+
+networks:
+  romeo_network:
+    name: romeo_network
+    driver: bridge 
