@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Romeo API Playground</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔐</text></svg>">
+</head>
+<body>
+    <header>
+        <h1>Romeo API Playground</h1>
+        <p>Test and interact with the Romeo Reservation System API</p>
+    </header>
+
+    <div id="auth-info" class="box">
+        <h2>Authentication Status</h2>
+        <p id="auth-status">Not authenticated</p>
+        <div id="token-container" style="display: none;">
+            <h3>JWT Token</h3>
+            <div id="token-display" class="token-display"></div>
+            <button id="logout-btn">Logout</button>
+        </div>
+        <div id="custom-token-container">
+            <h3>Custom JWT Token</h3>
+            <p class="hint">Use this to test endpoints with your own token</p>
+            <div class="form-group">
+                <textarea id="custom-token" placeholder="Paste your JWT token here"></textarea>
+            </div>
+            <div class="token-toggle">
+                <label for="use-custom-token">
+                    <input type="checkbox" id="use-custom-token">
+                    Use custom token for requests
+                </label>
+            </div>
+            <button id="apply-token-btn">Apply Token</button>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="user">User</div>
+        <div class="tab" data-tab="reservable">Reservable</div>
+        <div class="tab" data-tab="constraint">Constraint</div>
+        <div class="tab" data-tab="validator">Validator</div>
+        <div class="tab" data-tab="reservation">Reservation</div>
+        <div class="tab" data-tab="docs">API Docs</div>
+    </div>
+
+    <div id="user" class="tab-content active">
+        <h2>User Endpoints</h2>
+        
+        <div class="box">
+            <h3>Create User <span class="badge post">POST</span></h3>
+            <p>Register a new user and get a JWT token</p>
+            <div class="request-url">POST /api/users</div>
+            
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <button type="submit">Register</button>
+            </form>
+            
+            <div id="register-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get User Profile <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get the current user's profile (requires authentication)</p>
+            <div class="request-url">GET /api/users/profile</div>
+            
+            <button id="get-profile-btn">Get Profile</button>
+            
+            <div id="profile-result" class="profile" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div id="reservable" class="tab-content">
+        <h2>Reservable Endpoints</h2>
+        
+        <div class="box">
+            <h3>Create Reservable <span class="badge post">POST</span> <span class="badge auth">AUTH</span></h3>
+            <p>Create a new reservable resource</p>
+            <div class="request-url">POST /api/reservables</div>
+            
+            <form id="create-reservable-form">
+                <div class="form-group">
+                    <label for="reservable-name">Name:</label>
+                    <input type="text" id="reservable-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="reservable-description">Description:</label>
+                    <textarea id="reservable-description" name="description" rows="3"></textarea>
+                </div>
+                <button type="submit">Create Reservable</button>
+            </form>
+            
+            <div id="create-reservable-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get User Reservables <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get all reservables for the authenticated user</p>
+            <div class="request-url">GET /api/reservables/user</div>
+            
+            <button id="get-user-reservables-btn">Get My Reservables</button>
+            
+            <div id="user-reservables-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Reservable <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get a single reservable by ID</p>
+            <div class="request-url">GET /api/reservables/:id</div>
+            
+            <form id="get-reservable-form">
+                <div class="form-group">
+                    <label for="get-reservable-id">Reservable ID:</label>
+                    <input type="text" id="get-reservable-id" name="id" required placeholder="UUID of the reservable">
+                </div>
+                <button type="submit">Get Reservable</button>
+            </form>
+            
+            <div id="get-reservable-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Update Reservable <span class="badge put">PUT</span> <span class="badge auth">AUTH</span></h3>
+            <p>Update an existing reservable</p>
+            <div class="request-url">PUT /api/reservables/:id</div>
+            
+            <form id="update-reservable-form">
+                <div class="form-group">
+                    <label for="update-reservable-id">Reservable ID:</label>
+                    <input type="text" id="update-reservable-id" name="id" required placeholder="UUID of the reservable">
+                </div>
+                <div class="form-group">
+                    <label for="update-reservable-name">Name:</label>
+                    <input type="text" id="update-reservable-name" name="name">
+                </div>
+                <div class="form-group">
+                    <label for="update-reservable-description">Description:</label>
+                    <textarea id="update-reservable-description" name="description" rows="3"></textarea>
+                </div>
+                <button type="submit">Update Reservable</button>
+            </form>
+            
+            <div id="update-reservable-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Delete Reservable <span class="badge delete">DELETE</span> <span class="badge auth">AUTH</span></h3>
+            <p>Delete a reservable</p>
+            <div class="request-url">DELETE /api/reservables/:id</div>
+            
+            <form id="delete-reservable-form">
+                <div class="form-group">
+                    <label for="delete-reservable-id">Reservable ID:</label>
+                    <input type="text" id="delete-reservable-id" name="id" required placeholder="UUID of the reservable">
+                </div>
+                <button type="submit">Delete Reservable</button>
+            </form>
+            
+            <div id="delete-reservable-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Add to Collection <span class="badge post">POST</span> <span class="badge auth">AUTH</span></h3>
+            <p>Add a reservable to a collection (parent-child relationship)</p>
+            <div class="request-url">POST /api/reservables/collection</div>
+            
+            <form id="add-to-collection-form">
+                <div class="form-group">
+                    <label for="parent-reservable-id">Parent Reservable ID:</label>
+                    <input type="text" id="parent-reservable-id" name="parent_id" required placeholder="UUID of the parent reservable">
+                </div>
+                <div class="form-group">
+                    <label for="child-reservable-id">Child Reservable ID:</label>
+                    <input type="text" id="child-reservable-id" name="child_id" required placeholder="UUID of the child reservable">
+                </div>
+                <button type="submit">Add to Collection</button>
+            </form>
+            
+            <div id="add-to-collection-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Remove from Collection <span class="badge delete">DELETE</span> <span class="badge auth">AUTH</span></h3>
+            <p>Remove a reservable from a collection</p>
+            <div class="request-url">DELETE /api/reservables/collection/:parent_id/:child_id</div>
+            
+            <form id="remove-from-collection-form">
+                <div class="form-group">
+                    <label for="remove-parent-id">Parent Reservable ID:</label>
+                    <input type="text" id="remove-parent-id" name="parent_id" required placeholder="UUID of the parent reservable">
+                </div>
+                <div class="form-group">
+                    <label for="remove-child-id">Child Reservable ID:</label>
+                    <input type="text" id="remove-child-id" name="child_id" required placeholder="UUID of the child reservable">
+                </div>
+                <button type="submit">Remove from Collection</button>
+            </form>
+            
+            <div id="remove-from-collection-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Children <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get all children of a reservable</p>
+            <div class="request-url">GET /api/reservables/:id/children</div>
+            
+            <form id="get-children-form">
+                <div class="form-group">
+                    <label for="parent-id-children">Parent Reservable ID:</label>
+                    <input type="text" id="parent-id-children" name="id" required placeholder="UUID of the parent reservable">
+                </div>
+                <button type="submit">Get Children</button>
+            </form>
+            
+            <div id="get-children-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div id="constraint" class="tab-content">
+        <h2>Constraint Endpoints</h2>
+        
+        <div class="box">
+            <h3>Create Constraint <span class="badge post">POST</span> <span class="badge auth">AUTH</span></h3>
+            <p>Create a new constraint for a reservable</p>
+            <div class="request-url">POST /api/constraints</div>
+            
+            <form id="create-constraint-form">
+                <div class="form-group">
+                    <label for="constraint-reservable-id">Reservable ID:</label>
+                    <input type="text" id="constraint-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
+                </div>
+                <div class="form-group">
+                    <label for="constraint-name">Name:</label>
+                    <input type="text" id="constraint-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="constraint-type">Type:</label>
+                    <select id="constraint-type" name="type">
+                        <option value="">Select type (optional)</option>
+                        <option value="date">Date</option>
+                        <option value="time">Time</option>
+                        <option value="integer">Integer</option>
+                        <option value="string">String</option>
+                        <option value="boolean">Boolean</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Phone</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="constraint-value">Value:</label>
+                    <textarea id="constraint-value" name="value" rows="3" required placeholder=''></textarea>
+                </div>
+                <button type="submit">Create Constraint</button>
+            </form>
+            
+            <div id="create-constraint-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Reservable Constraints <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get all constraints for a reservable</p>
+            <div class="request-url">GET /api/constraints/reservable/:reservable_id</div>
+            
+            <form id="get-reservable-constraints-form">
+                <div class="form-group">
+                    <label for="get-constraints-reservable-id">Reservable ID:</label>
+                    <input type="text" id="get-constraints-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
+                </div>
+                <button type="submit">Get Constraints</button>
+            </form>
+            
+            <div id="reservable-constraints-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Constraint <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get a single constraint by ID</p>
+            <div class="request-url">GET /api/constraints/:id</div>
+            
+            <form id="get-constraint-form">
+                <div class="form-group">
+                    <label for="get-constraint-id">Constraint ID:</label>
+                    <input type="text" id="get-constraint-id" name="id" required placeholder="UUID of the constraint">
+                </div>
+                <button type="submit">Get Constraint</button>
+            </form>
+            
+            <div id="get-constraint-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Update Constraint <span class="badge put">PUT</span> <span class="badge auth">AUTH</span></h3>
+            <p>Update an existing constraint</p>
+            <div class="request-url">PUT /api/constraints/:id</div>
+            
+            <form id="update-constraint-form">
+                <div class="form-group">
+                    <label for="update-constraint-id">Constraint ID:</label>
+                    <input type="text" id="update-constraint-id" name="id" required placeholder="UUID of the constraint">
+                </div>
+                <div class="form-group">
+                    <label for="update-constraint-name">Name:</label>
+                    <input type="text" id="update-constraint-name" name="name">
+                </div>
+                <div class="form-group">
+                    <label for="update-constraint-type">Type:</label>
+                    <select id="update-constraint-type" name="type">
+                        <option value="">Select type (optional)</option>
+                        <option value="date">Date</option>
+                        <option value="time">Time</option>
+                        <option value="integer">Integer</option>
+                        <option value="string">String</option>
+                        <option value="boolean">Boolean</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Phone</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="update-constraint-value">Value:</label>
+                    <textarea id="update-constraint-value" name="value" rows="3" placeholder=''></textarea>
+                </div>
+                <button type="submit">Update Constraint</button>
+            </form>
+            
+            <div id="update-constraint-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Delete Constraint <span class="badge delete">DELETE</span> <span class="badge auth">AUTH</span></h3>
+            <p>Delete a constraint</p>
+            <div class="request-url">DELETE /api/constraints/:id</div>
+            
+            <form id="delete-constraint-form">
+                <div class="form-group">
+                    <label for="delete-constraint-id">Constraint ID:</label>
+                    <input type="text" id="delete-constraint-id" name="id" required placeholder="UUID of the constraint">
+                </div>
+                <button type="submit">Delete Constraint</button>
+            </form>
+            
+            <div id="delete-constraint-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <div id="validator" class="tab-content">
+        <h2>Validator Endpoints</h2>
+        <p>This section will be implemented soon...</p>
+    </div>
+
+    <div id="reservation" class="tab-content">
+        <h2>Reservation Endpoints</h2>
+        <p>This section will be implemented soon...</p>
+    </div>
+
+    <div id="docs" class="tab-content">
+        <h2>API Documentation</h2>
+        <p>This API provides endpoints to manage users, reservables, constraints, validators, and reservations.</p>
+        
+        <h3>Authentication</h3>
+        <p>All endpoints except user registration and reservation creation require JWT authentication.</p>
+        <p>Include the JWT token in the Authorization header:</p>
+        <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+        
+        <h3>Custom JWT Token</h3>
+        <p>You can use your own JWT token to test the API endpoints by:</p>
+        <ol>
+            <li>Paste your token in the "Custom JWT Token" field at the top of the page</li>
+            <li>Click "Apply Token" to save it</li>
+            <li>Check "Use custom token for requests" to use it for API calls</li>
+        </ol>
+        <p>This is useful for testing with tokens generated outside this playground, or for testing with different user roles and permissions.</p>
+        
+        <h3>Base URL</h3>
+        <p>All API endpoints are relative to the base URL: <code id="base-url"></code></p>
+    </div>
+
+    <!-- Include external JavaScript -->
+    <script src="/js/api.js"></script>
+</body>
+</html> 
