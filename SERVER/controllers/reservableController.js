@@ -1,4 +1,5 @@
 const { Reservable, ReservableCollection, Validator } = require('../models');
+const { Op } = require('sequelize');
 
 /**
  * Create a new reservable
@@ -17,7 +18,7 @@ const createReservable = async (req, res) => {
       user_id: userId
     });
 
-    // Automatically add a validator with validation_function 'check_hierarchy_reservation_overlap'
+    // Automatically add a validator with validation_function 'validator_reservation_overlap'
     await Validator.create({
       reservable_id: reservable.id,
       description: 'Prevent overlap',
@@ -218,11 +219,11 @@ const addReservableToCollection = async (req, res) => {
     if (parentReservable.user_id !== userId) {
       return res.status(403).json({
         success: false,
-        message: 'You are not authorized to modify this parent reservable'
+        message: 'You are not authorized to create the relationship. You are not the owner of the parent reservable.'
       });
     }
 
-    // Check if child reservable exists
+    // Check if child reservable exists and belongs to the user
     const childReservable = await Reservable.findByPk(child_id);
     if (!childReservable) {
       return res.status(404).json({
@@ -230,18 +231,26 @@ const addReservableToCollection = async (req, res) => {
         message: 'Child reservable not found'
       });
     }
+    if (childReservable.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to create the relationship. You are not the owner of the child reservable.'
+      });
+    }
 
-    // Check if the relationship already exists
+    // Check if the relationship already exists in either direction
     const existingRelationship = await ReservableCollection.findOne({
       where: {
-        parent_id,
-        child_id
+        [Op.or]: [
+          { parent_id, child_id },
+          { parent_id: child_id, child_id: parent_id }
+        ]
       }
     });
     if (existingRelationship) {
       return res.status(409).json({
         success: false,
-        message: 'This reservable is already in the collection'
+        message: 'The reservables are already associated'
       });
     }
 
@@ -285,7 +294,22 @@ const removeReservableFromCollection = async (req, res) => {
     if (parentReservable.user_id !== userId) {
       return res.status(403).json({
         success: false,
-        message: 'You are not authorized to modify this parent reservable'
+        message: 'You are not authorized to modify this relationship. You are not the owner of the parent reservable.'
+      });
+    }
+
+    // Check if child reservable exists
+    const childReservable = await Reservable.findByPk(child_id);
+    if (!childReservable) {
+      return res.status(404).json({
+        success: false,
+        message: 'Child reservable not found'
+      });
+    }
+    if (childReservable.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to modify this relationship. You are not the owner of the child reservable.'
       });
     }
 

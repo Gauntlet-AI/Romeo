@@ -68,13 +68,20 @@ const createValidator = async (req, res) => {
 const getReservableValidators = async (req, res) => {
   try {
     const { reservable_id } = req.params;
+    const userId = req.user.id;
 
-    // Check if reservable exists
+    // Check if reservable exists and belongs to the user
     const reservable = await Reservable.findByPk(reservable_id);
     if (!reservable) {
       return res.status(404).json({
         success: false,
         message: 'Reservable not found'
+      });
+    }
+    if (reservable.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to view the validators for this reservable'
       });
     }
 
@@ -107,6 +114,7 @@ const getReservableValidators = async (req, res) => {
 const getValidator = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
     // Get the validator
     const validator = await Validator.findByPk(id);
@@ -114,6 +122,15 @@ const getValidator = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Validator not found'
+      });
+    }
+    
+    // Check if user owns the reservable
+    const reservable = await Reservable.findByPk(validator.reservable_id);
+    if (!reservable || reservable.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to view this validator'
       });
     }
 

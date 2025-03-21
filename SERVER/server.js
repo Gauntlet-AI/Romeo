@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { sequelize, testConnection } = require('./config/database');
+const { testConnection } = require('./config/database');
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
@@ -10,6 +10,7 @@ const reservableRoutes = require('./routes/reservableRoutes');
 const constraintRoutes = require('./routes/constraintRoutes');
 const validatorRoutes = require('./routes/validatorRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Initialize express app
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/reservables', reservableRoutes);
 app.use('/api/constraints', constraintRoutes);
 app.use('/api/validators', validatorRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api/auth', authRoutes);
 
 // Root route - serves the API playground
 app.get('/', (req, res) => {

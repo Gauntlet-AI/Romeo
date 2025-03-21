@@ -61,7 +61,7 @@
                 </div>
                 <div class="form-group">
                     <label for="name">Name:</label>
-                    <input type="text" id="name" name="name" required>
+                    <input type="text" id="name" name="name">
                 </div>
                 <button type="submit">Register</button>
             </form>
@@ -77,6 +77,40 @@
             <button id="get-profile-btn">Get Profile</button>
             
             <div id="profile-result" class="profile" style="display: none;"></div>
+        </div>
+
+        <h2>Authentication Endpoints</h2>
+        
+        <div class="box">
+            <h3>Request Login Email <span class="badge post">POST</span></h3>
+            <p>Request a magic link to be sent to your email for passwordless login</p>
+            <div class="request-url">POST /api/auth/login</div>
+            
+            <form id="request-login-form">
+                <div class="form-group">
+                    <label for="login-email">Email:</label>
+                    <input type="email" id="login-email" name="email" required>
+                </div>
+                <button type="submit">Request Login Link</button>
+            </form>
+            
+            <div id="request-login-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Verify Login Token <span class="badge get">GET</span></h3>
+            <p>Verify a login token from a magic link and get a JWT token</p>
+            <div class="request-url">GET /api/auth/verify?token=TOKEN</div>
+            
+            <form id="verify-token-form">
+                <div class="form-group">
+                    <label for="login-token">Login Token:</label>
+                    <input type="text" id="login-token" name="token" required placeholder="Token from magic link">
+                </div>
+                <button type="submit">Verify Token</button>
+            </form>
+            
+            <div id="verify-token-result" class="result" style="display: none;"></div>
         </div>
     </div>
 
@@ -451,18 +485,14 @@
         <h2>Reservation Endpoints</h2>
         
         <div class="box">
-            <h3>Create Reservation <span class="badge post">POST</span></h3>
-            <p>Create a new reservation (no authentication required)</p>
+            <h3>Create Reservation <span class="badge post">POST</span> <span class="badge auth">AUTH</span></h3>
+            <p>Create a new reservation (associated with the logged-in user)</p>
             <div class="request-url">POST /api/reservations</div>
             
             <form id="create-reservation-form">
                 <div class="form-group">
                     <label for="reservation-reservable-id">Reservable ID:</label>
                     <input type="text" id="reservation-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
-                </div>
-                <div class="form-group">
-                    <label for="reservation-user-id">User ID:</label>
-                    <input type="text" id="reservation-user-id" name="user_id" required placeholder="UUID of the user">
                 </div>
                 <div class="form-group">
                     <label for="reservation-start-time">Start Time (ISO8601):</label>
@@ -504,15 +534,11 @@
 
         <div class="box">
             <h3>Get User Reservations <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
-            <p>Get all reservations for a user</p>
-            <div class="request-url">GET /api/reservations/user/:user_id</div>
+            <p>Get all reservations for the authenticated user</p>
+            <div class="request-url">GET /api/reservations/user</div>
             
             <form id="get-user-reservations-form">
-                <div class="form-group">
-                    <label for="get-reservations-user-id">User ID:</label>
-                    <input type="text" id="get-reservations-user-id" name="user_id" required placeholder="UUID of the user">
-                </div>
-                <button type="submit">Get Reservations</button>
+                <button type="submit">Get My Reservations</button>
             </form>
             
             <div id="user-reservations-result" class="result" style="display: none;"></div>
@@ -533,6 +559,22 @@
             
             <div id="get-reservation-result" class="result" style="display: none;"></div>
         </div>
+
+        <div class="box">
+            <h3>Delete Reservation <span class="badge delete">DELETE</span> <span class="badge auth">AUTH</span></h3>
+            <p>Delete a reservation (you must be either the reservation owner or the reservable owner)</p>
+            <div class="request-url">DELETE /api/reservations/:id</div>
+            
+            <form id="delete-reservation-form">
+                <div class="form-group">
+                    <label for="delete-reservation-id">Reservation ID:</label>
+                    <input type="text" id="delete-reservation-id" name="id" required placeholder="UUID of the reservation">
+                </div>
+                <button type="submit">Delete Reservation</button>
+            </form>
+            
+            <div id="delete-reservation-result" class="result" style="display: none;"></div>
+        </div>
     </div>
 
     <div id="docs" class="tab-content">
@@ -540,9 +582,35 @@
         <p>This API provides endpoints to manage users, reservables, constraints, validators, and reservations.</p>
         
         <h3>Authentication</h3>
-        <p>All endpoints except user registration and reservation creation require JWT authentication.</p>
+        <p>Most endpoints require JWT authentication. There are two ways to get authenticated:</p>
+        
+        <h4>1. User Registration</h4>
+        <p>Create a new user with POST /api/users to get a JWT token immediately.</p>
+        
+        <h4>2. Passwordless Login (Magic Link)</h4>
+        <p>For existing users, the API supports passwordless login via magic links:</p>
+        <ol>
+            <li>Request a magic link to be sent to your email with POST /api/auth/login</li>
+            <li>The API sends an email with a unique login token</li>
+            <li>Verify the token from the link with GET /api/auth/verify?token=TOKEN</li>
+            <li>On successful verification, you'll receive a JWT token</li>
+        </ol>
+        
         <p>Include the JWT token in the Authorization header:</p>
         <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+        
+        <h3>Reservations</h3>
+        <p>The reservations API follows these important principles:</p>
+        <ul>
+            <li><strong>Creating Reservations</strong>: When creating reservations, the API automatically associates the reservation with the authenticated user. There is no need to specify a user ID in the request.</li>
+            <li><strong>User Reservations</strong>: The GET /api/reservations/user endpoint automatically retrieves reservations for the currently authenticated user without requiring a user ID parameter.</li>
+            <li><strong>Deleting Reservations</strong>: A reservation can be deleted by either:
+                <ul>
+                    <li>The user who created the reservation (but only if the reservation hasn't ended yet)</li>
+                    <li>The owner of the associated reservable (who can delete any reservation, even past ones)</li>
+                </ul>
+            </li>
+        </ul>
         
         <h3>Custom JWT Token</h3>
         <p>You can use your own JWT token to test the API endpoints by:</p>

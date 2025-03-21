@@ -10,12 +10,13 @@ const createReservation = async (req, res) => {
   try {
     const { 
       reservable_id, 
-      user_id, 
       start_time_iso8601, 
       end_time_iso8601, 
       notes, 
       constraint_inputs 
     } = req.body;
+
+    const user_id = req.user.id;
 
     // Check if reservable exists
     const reservable = await Reservable.findByPk(reservable_id);
@@ -23,15 +24,6 @@ const createReservation = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Reservable not found'
-      });
-    }
-
-    // Check if user exists
-    const user = await User.findByPk(user_id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
       });
     }
 
@@ -65,6 +57,7 @@ const createReservation = async (req, res) => {
     });
 
     // Check the result from the function
+    // TODO: Log the results
     console.log(results);
     
     // Get the first row of results
@@ -144,16 +137,7 @@ const getReservableReservations = async (req, res) => {
  */
 const getUserReservations = async (req, res) => {
   try {
-    const { user_id } = req.params;
-
-    // Check if user exists
-    const user = await User.findByPk(user_id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+    const user_id = req.user.id;
 
     // Get all reservations for the user
     const reservations = await Reservation.findAll({
@@ -209,9 +193,92 @@ const getReservation = async (req, res) => {
   }
 };
 
+/**
+ * Delete a reservation by ID
+ * Requires authentication and authorization.
+ * Authorization rules:
+ * 1. The user who created the reservation can delete it if it hasn't ended yet
+ * 2. The owner of the associated reservable can delete any reservation (even past ones)
+ * 
+ * @param {Object} req - Express request object with params.id (UUID) and user object from auth middleware
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with success status and message
+ */
+const deleteReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Find the reservation with its associated reservable
+    const reservation = await Reservation.findByPk(id);
+    if (!reservation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reservation not found'
+      });
+    }
+
+    // Check if user is the owner of the reservation
+    const isReservationOwner = reservation.user_id === userId;
+    
+    // If not the reservation owner, check if user is the owner of the reservable
+    let isReservableOwner = false;
+    if (!isReservationOwner) {
+      const reservable = await Reservable.findByPk(reservation.reservable_id);
+      if (!reservable) {
+        return res.status(404).json({
+          success: false,
+          message: 'Associated reservable not found'
+        });
+      }
+      isReservableOwner = reservable.user_id === userId;
+    }
+
+    // User must be either the reservation owner or the reservable owner
+    if (!isReservationOwner && !isReservableOwner) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to delete this reservation'
+      });
+    }
+
+    // Check for reservations that have already happened
+    // Only reservation owners are restricted from deleting past reservations
+    // Reservable owners (admins) can delete any reservation
+    const now = new Date();
+    if (isReservationOwner && !isReservableOwner && new Date(reservation.end_time_standard) < now) {
+      return res.status(400).json({
+        success: false,
+        message: 'Users cannot delete reservations that have already ended. Please contact the reservable owner.'
+      });
+    }
+
+    // Delete the reservation
+    await reservation.destroy();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Reservation deleted successfully',
+      data: {
+        id: reservation.id,
+        was_owner: isReservationOwner,
+        was_reservable_owner: isReservableOwner
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting reservation:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while deleting reservation',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createReservation,
   getReservableReservations,
   getUserReservations,
-  getReservation
+  getReservation,
+  deleteReservation
 }; 

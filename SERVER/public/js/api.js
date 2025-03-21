@@ -240,6 +240,106 @@ const UserAPI = {
     }
 };
 
+// Authentication API functions
+const AuthAPI = {
+    /**
+     * Request a login email with magic link
+     * @param {String} email User's email address
+     * @returns {Promise} Promise with result
+     */
+    requestLoginEmail: async function(email) {
+        const resultElement = document.getElementById('request-login-result');
+        resultElement.style.display = 'none';
+        
+        try {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="info-message">Sending login link, please wait...</div>
+            `;
+            
+            const response = await fetch(`${API.baseUrl}/api/auth/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email })
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Login email sent successfully! Check your inbox for the magic link.</div>
+                    <p>Note: In a real environment, an email would be sent. For testing purposes, you would now receive an email with a login link.</p>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to send login email'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Verify a login token and get JWT
+     * @param {String} token Login token from magic link
+     * @returns {Promise} Promise with result
+     */
+    verifyLoginToken: async function(token) {
+        const resultElement = document.getElementById('verify-token-result');
+        resultElement.style.display = 'none';
+        
+        try {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="info-message">Verifying token, please wait...</div>
+            `;
+            
+            const response = await fetch(`${API.baseUrl}/api/auth/verify?token=${encodeURIComponent(token)}`, {
+                method: 'GET'
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                // Store token and user data
+                API.token = data.data.token;
+                API.user = data.data.user;
+                localStorage.setItem('jwtToken', API.token);
+                localStorage.setItem('userData', JSON.stringify(API.user));
+                
+                // Update authentication status
+                Auth.updateStatus();
+                
+                resultElement.innerHTML = `
+                    <div class="success-message">Login successful! JWT token has been stored and you are now authenticated.</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to verify login token'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    }
+};
+
 // Reservable API functions
 const ReservableAPI = {
     /**
@@ -1202,6 +1302,14 @@ const ReservationAPI = {
         const resultElement = document.getElementById('create-reservation-result');
         resultElement.style.display = 'none';
         
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
         try {
             // Format dates correctly to ISO8601
             const startTime = new Date(formData.start_time_iso8601);
@@ -1210,7 +1318,6 @@ const ReservationAPI = {
             // Prepare data
             const reservationData = {
                 reservable_id: formData.reservable_id,
-                user_id: formData.user_id,
                 start_time_iso8601: startTime.toISOString(),
                 end_time_iso8601: endTime.toISOString(),
                 notes: formData.notes || null
@@ -1239,7 +1346,8 @@ const ReservationAPI = {
             const response = await fetch(`${API.baseUrl}/api/reservations`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
                 },
                 body: JSON.stringify(reservationData)
             });
@@ -1321,10 +1429,9 @@ const ReservationAPI = {
     },
 
     /**
-     * Get all reservations for a user
-     * @param {String} userId User ID
+     * Get all reservations for the authenticated user
      */
-    getUserReservations: async function(userId) {
+    getUserReservations: async function() {
         const resultElement = document.getElementById('user-reservations-result');
         resultElement.style.display = 'none';
         
@@ -1337,7 +1444,7 @@ const ReservationAPI = {
         }
         
         try {
-            const response = await fetch(`${API.baseUrl}/api/reservations/user/${userId}`, {
+            const response = await fetch(`${API.baseUrl}/api/reservations/user`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${Auth.getActiveToken()}`
@@ -1351,11 +1458,11 @@ const ReservationAPI = {
             if (response.ok) {
                 if (data.data.reservations.length === 0) {
                     resultElement.innerHTML = `
-                        <div class="success-message">No reservations found for this user.</div>
+                        <div class="success-message">No reservations found for your account.</div>
                     `;
                 } else {
                     resultElement.innerHTML = `
-                        <div class="success-message">Retrieved ${data.data.reservations.length} reservations successfully!</div>
+                        <div class="success-message">Retrieved ${data.data.reservations.length} of your reservations successfully!</div>
                         <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
                     `;
                 }
@@ -1409,6 +1516,63 @@ const ReservationAPI = {
             } else {
                 resultElement.innerHTML = `
                     <div class="error-message">Error: ${data.message || 'Failed to get reservation'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Delete a reservation
+     * @param {String} id Reservation ID
+     */
+    deleteReservation: async function(id) {
+        const resultElement = document.getElementById('delete-reservation-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            // Confirm deletion
+            // if (!confirm('Are you sure you want to delete this reservation? This action cannot be undone.')) {
+            //     return;
+            // }
+            
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="info-message">Deleting reservation, please wait...</div>
+            `;
+            
+            const response = await fetch(`${API.baseUrl}/api/reservations/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Reservation deleted successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to delete reservation'}</div>
                     <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
                 `;
             }
@@ -1631,7 +1795,6 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const formData = {
             reservable_id: document.getElementById('reservation-reservable-id').value,
-            user_id: document.getElementById('reservation-user-id').value,
             start_time_iso8601: document.getElementById('reservation-start-time').value,
             end_time_iso8601: document.getElementById('reservation-end-time').value,
             notes: document.getElementById('reservation-notes').value,
@@ -1648,13 +1811,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('get-user-reservations-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        const userId = document.getElementById('get-reservations-user-id').value;
-        ReservationAPI.getUserReservations(userId);
+        ReservationAPI.getUserReservations();
     });
 
     document.getElementById('get-reservation-form').addEventListener('submit', function(e) {
         e.preventDefault();
         const id = document.getElementById('get-reservation-id').value;
         ReservationAPI.getReservation(id);
+    });
+
+    document.getElementById('delete-reservation-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('delete-reservation-id').value;
+        ReservationAPI.deleteReservation(id);
+    });
+
+    // Auth form handlers
+    document.getElementById('request-login-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        AuthAPI.requestLoginEmail(email);
+    });
+    
+    document.getElementById('verify-token-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const token = document.getElementById('login-token').value;
+        AuthAPI.verifyLoginToken(token);
     });
 }); 

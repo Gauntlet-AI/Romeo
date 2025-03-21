@@ -65,6 +65,7 @@ FUNCTION REQUIREMENTS:
 5. Include helpful comments explaining the logic
 6. Use proper PostgreSQL data typing and error handling
 7. Ensure the function is efficient and handles edge cases
+8. Prefix all declared variable names with a v_ prefix
 
 EXAMPLE VALIDATOR FUNCTIONS:
 ${examples}

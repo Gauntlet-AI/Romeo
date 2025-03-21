@@ -461,8 +461,7 @@ CREATE OR REPLACE FUNCTION make_reservation(
 ) RETURNS TABLE (
     reservation_id UUID,
     status reservation_status,
-    error_message TEXT,
-    success BOOLEAN
+    error_message TEXT
 ) AS $$
 DECLARE
     v_reservation_id UUID;

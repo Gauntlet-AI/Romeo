@@ -1,10 +1,10 @@
 const { body, param, validationResult } = require('express-validator');
 const { isUUID } = require('validator');
+const User = require('../models/User');
 
-// Middleware to validate request data
 const validate = (validations) => {
   return async (req, res, next) => {
-    // Run all validations
+    await Promise.all(validations.map(validation => validation.run(req)));
     await Promise.all(validations.map(validation => validation.run(req)));
 
     // Check for validation errors
@@ -20,16 +20,25 @@ const validate = (validations) => {
   };
 };
 
-// Common validation rules
+const loginEmailValidation = [
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Must be a valid email address')
+];
+
 const userValidation = [
   body('email')
     .isEmail()
-    .withMessage('Please provide a valid email address'),
-  body('name')
-    .notEmpty()
-    .withMessage('Name is required')
-    .isLength({ min: 2, max: 255 })
-    .withMessage('Name must be between 2 and 255 characters')
+    .withMessage('Please provide a valid email address')
+    .custom((value) => {
+      return User.findOne({ where: { email: value } }).then((user) => {
+        if (user) {
+          return Promise.reject('Email already in use');
+        }
+        return true;
+      });
+    })
 ];
 
 const reservableValidation = [
@@ -133,15 +142,6 @@ const reservationValidation = [
       }
       return true;
     }),
-  body('user_id')
-    .notEmpty()
-    .withMessage('User ID is required')
-    .custom(value => {
-      if (!isUUID(value)) {
-        throw new Error('User ID must be a valid UUID');
-      }
-      return true;
-    }),
   body('start_time_iso8601')
     .notEmpty()
     .withMessage('Start time is required')
@@ -174,6 +174,7 @@ const uuidParam = [
 
 module.exports = {
   validate,
+  loginEmailValidation,
   userValidation,
   reservableValidation,
   reservableCollectionValidation,

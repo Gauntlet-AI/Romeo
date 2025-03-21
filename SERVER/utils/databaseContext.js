@@ -4,6 +4,10 @@
 
 // Database schema definitions
 const SCHEMA_DEFINITIONS = `
+CREATE TYPE user_status AS ENUM ('pending', 'approved');
+CREATE TYPE reservation_status AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE constraint_type AS ENUM ('date', 'time', 'integer', 'string', 'boolean', 'email', 'phone');
+
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
