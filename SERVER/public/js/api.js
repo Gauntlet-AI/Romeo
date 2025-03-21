@@ -930,6 +930,497 @@ const ConstraintAPI = {
     }
 };
 
+// Validator API functions
+const ValidatorAPI = {
+    /**
+     * Create a new validator
+     * @param {Object} formData Form data with reservable_id and description
+     * @returns {Promise} Promise with result
+     */
+    createValidator: async function(formData) {
+        const resultElement = document.getElementById('create-validator-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="info-message">Creating validator, please wait... This may take a few moments as we generate the validation function.</div>
+            `;
+            
+            const response = await fetch(`${API.baseUrl}/api/validators`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                },
+                body: JSON.stringify({
+                    reservable_id: formData.reservable_id,
+                    description: formData.description
+                })
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Validator created successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to create validator'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Get all validators for a reservable
+     * @param {String} reservableId Reservable ID
+     */
+    getReservableValidators: async function(reservableId) {
+        const resultElement = document.getElementById('reservable-validators-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API.baseUrl}/api/validators/reservable/${reservableId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                if (data.data.validators.length === 0) {
+                    resultElement.innerHTML = `
+                        <div class="success-message">No validators found for this reservable.</div>
+                    `;
+                } else {
+                    resultElement.innerHTML = `
+                        <div class="success-message">Retrieved ${data.data.validators.length} validators successfully!</div>
+                        <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                    `;
+                }
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to get validators'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Get a single validator by ID
+     * @param {String} id Validator ID
+     */
+    getValidator: async function(id) {
+        const resultElement = document.getElementById('get-validator-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API.baseUrl}/api/validators/${id}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Validator retrieved successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to get validator'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Toggle validator status (active/inactive)
+     * @param {Object} formData Form data with id and is_active
+     */
+    toggleValidatorStatus: async function(formData) {
+        const resultElement = document.getElementById('toggle-validator-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const isActive = formData.is_active === 'true';
+            
+            const response = await fetch(`${API.baseUrl}/api/validators/${formData.id}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                },
+                body: JSON.stringify({
+                    is_active: isActive
+                })
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Validator ${isActive ? 'activated' : 'deactivated'} successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to update validator status'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Delete a validator
+     * @param {String} id Validator ID
+     */
+    deleteValidator: async function(id) {
+        const resultElement = document.getElementById('delete-validator-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API.baseUrl}/api/validators/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Validator deleted successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to delete validator'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    }
+};
+
+// Reservation API functions
+const ReservationAPI = {
+    /**
+     * Create a new reservation
+     * @param {Object} formData Form data with reservation details
+     * @returns {Promise} Promise with result
+     */
+    createReservation: async function(formData) {
+        const resultElement = document.getElementById('create-reservation-result');
+        resultElement.style.display = 'none';
+        
+        try {
+            // Format dates correctly to ISO8601
+            const startTime = new Date(formData.start_time_iso8601);
+            const endTime = new Date(formData.end_time_iso8601);
+            
+            // Prepare data
+            const reservationData = {
+                reservable_id: formData.reservable_id,
+                user_id: formData.user_id,
+                start_time_iso8601: startTime.toISOString(),
+                end_time_iso8601: endTime.toISOString(),
+                notes: formData.notes || null
+            };
+            
+            // Parse constraint inputs if provided
+            if (formData.constraint_inputs) {
+                try {
+                    reservationData.constraint_inputs = JSON.parse(formData.constraint_inputs);
+                } catch (e) {
+                    resultElement.style.display = 'block';
+                    resultElement.innerHTML = `
+                        <div class="error-message">Error: Invalid JSON format for constraint_inputs field.</div>
+                    `;
+                    return;
+                }
+            } else {
+                reservationData.constraint_inputs = {};
+            }
+            
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="info-message">Creating reservation, please wait...</div>
+            `;
+            
+            const response = await fetch(`${API.baseUrl}/api/reservations`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(reservationData)
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Reservation created successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to create reservation'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Get all reservations for a reservable
+     * @param {String} reservableId Reservable ID
+     */
+    getReservableReservations: async function(reservableId) {
+        const resultElement = document.getElementById('reservable-reservations-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API.baseUrl}/api/reservations/reservable/${reservableId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                if (data.data.reservations.length === 0) {
+                    resultElement.innerHTML = `
+                        <div class="success-message">No reservations found for this reservable.</div>
+                    `;
+                } else {
+                    resultElement.innerHTML = `
+                        <div class="success-message">Retrieved ${data.data.reservations.length} reservations successfully!</div>
+                        <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                    `;
+                }
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to get reservations'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Get all reservations for a user
+     * @param {String} userId User ID
+     */
+    getUserReservations: async function(userId) {
+        const resultElement = document.getElementById('user-reservations-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API.baseUrl}/api/reservations/user/${userId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                if (data.data.reservations.length === 0) {
+                    resultElement.innerHTML = `
+                        <div class="success-message">No reservations found for this user.</div>
+                    `;
+                } else {
+                    resultElement.innerHTML = `
+                        <div class="success-message">Retrieved ${data.data.reservations.length} reservations successfully!</div>
+                        <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                    `;
+                }
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to get reservations'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    },
+
+    /**
+     * Get a single reservation by ID
+     * @param {String} id Reservation ID
+     */
+    getReservation: async function(id) {
+        const resultElement = document.getElementById('get-reservation-result');
+        resultElement.style.display = 'none';
+        
+        if (!Auth.isAuthenticated()) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: Authentication required. Please register or set a custom token first.</div>
+            `;
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API.baseUrl}/api/reservations/${id}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${Auth.getActiveToken()}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Reservation retrieved successfully!</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Failed to get reservation'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
+    }
+};
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize UI
@@ -1096,5 +1587,74 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const id = document.getElementById('delete-constraint-id').value;
         ConstraintAPI.deleteConstraint(id);
+    });
+
+    // Validator form handlers
+    document.getElementById('create-validator-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            reservable_id: document.getElementById('validator-reservable-id').value,
+            description: document.getElementById('validator-description').value
+        };
+        ValidatorAPI.createValidator(formData);
+    });
+
+    document.getElementById('get-reservable-validators-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const reservableId = document.getElementById('get-validators-reservable-id').value;
+        ValidatorAPI.getReservableValidators(reservableId);
+    });
+
+    document.getElementById('get-validator-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('get-validator-id').value;
+        ValidatorAPI.getValidator(id);
+    });
+
+    document.getElementById('toggle-validator-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            id: document.getElementById('toggle-validator-id').value,
+            is_active: document.getElementById('toggle-validator-status').value
+        };
+        ValidatorAPI.toggleValidatorStatus(formData);
+    });
+
+    document.getElementById('delete-validator-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('delete-validator-id').value;
+        ValidatorAPI.deleteValidator(id);
+    });
+
+    // Reservation form handlers
+    document.getElementById('create-reservation-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            reservable_id: document.getElementById('reservation-reservable-id').value,
+            user_id: document.getElementById('reservation-user-id').value,
+            start_time_iso8601: document.getElementById('reservation-start-time').value,
+            end_time_iso8601: document.getElementById('reservation-end-time').value,
+            notes: document.getElementById('reservation-notes').value,
+            constraint_inputs: document.getElementById('reservation-constraint-inputs').value
+        };
+        ReservationAPI.createReservation(formData);
+    });
+
+    document.getElementById('get-reservable-reservations-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const reservableId = document.getElementById('get-reservations-reservable-id').value;
+        ReservationAPI.getReservableReservations(reservableId);
+    });
+
+    document.getElementById('get-user-reservations-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('get-reservations-user-id').value;
+        ReservationAPI.getUserReservations(userId);
+    });
+
+    document.getElementById('get-reservation-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('get-reservation-id').value;
+        ReservationAPI.getReservation(id);
     });
 }); 

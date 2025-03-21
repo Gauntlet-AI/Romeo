@@ -354,12 +354,185 @@
 
     <div id="validator" class="tab-content">
         <h2>Validator Endpoints</h2>
-        <p>This section will be implemented soon...</p>
+        
+        <div class="box">
+            <h3>Create Validator <span class="badge post">POST</span> <span class="badge auth">AUTH</span></h3>
+            <p>Create a new validator for a reservable. The system will generate a validation function based on your description.</p>
+            <div class="request-url">POST /api/validators</div>
+            
+            <form id="create-validator-form">
+                <div class="form-group">
+                    <label for="validator-reservable-id">Reservable ID:</label>
+                    <input type="text" id="validator-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
+                </div>
+                <div class="form-group">
+                    <label for="validator-description">Description:</label>
+                    <textarea id="validator-description" name="description" rows="4" required placeholder="Describe the validation rule in natural language, e.g., 'Check if the reservation start time is at least 2 hours before the end time'"></textarea>
+                </div>
+                <button type="submit">Create Validator</button>
+            </form>
+            
+            <div id="create-validator-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Reservable Validators <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get all validators for a reservable</p>
+            <div class="request-url">GET /api/validators/reservable/:reservable_id</div>
+            
+            <form id="get-reservable-validators-form">
+                <div class="form-group">
+                    <label for="get-validators-reservable-id">Reservable ID:</label>
+                    <input type="text" id="get-validators-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
+                </div>
+                <button type="submit">Get Validators</button>
+            </form>
+            
+            <div id="reservable-validators-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Validator <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get a single validator by ID</p>
+            <div class="request-url">GET /api/validators/:id</div>
+            
+            <form id="get-validator-form">
+                <div class="form-group">
+                    <label for="get-validator-id">Validator ID:</label>
+                    <input type="text" id="get-validator-id" name="id" required placeholder="UUID of the validator">
+                </div>
+                <button type="submit">Get Validator</button>
+            </form>
+            
+            <div id="get-validator-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Toggle Validator Status <span class="badge patch">PATCH</span> <span class="badge auth">AUTH</span></h3>
+            <p>Activate or deactivate a validator</p>
+            <div class="request-url">PATCH /api/validators/:id/status</div>
+            
+            <form id="toggle-validator-form">
+                <div class="form-group">
+                    <label for="toggle-validator-id">Validator ID:</label>
+                    <input type="text" id="toggle-validator-id" name="id" required placeholder="UUID of the validator">
+                </div>
+                <div class="form-group">
+                    <label for="toggle-validator-status">Status:</label>
+                    <select id="toggle-validator-status" name="is_active" required>
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                <button type="submit">Update Status</button>
+            </form>
+            
+            <div id="toggle-validator-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Delete Validator <span class="badge delete">DELETE</span> <span class="badge auth">AUTH</span></h3>
+            <p>Delete a validator</p>
+            <div class="request-url">DELETE /api/validators/:id</div>
+            
+            <form id="delete-validator-form">
+                <div class="form-group">
+                    <label for="delete-validator-id">Validator ID:</label>
+                    <input type="text" id="delete-validator-id" name="id" required placeholder="UUID of the validator">
+                </div>
+                <button type="submit">Delete Validator</button>
+            </form>
+            
+            <div id="delete-validator-result" class="result" style="display: none;"></div>
+        </div>
     </div>
 
     <div id="reservation" class="tab-content">
         <h2>Reservation Endpoints</h2>
-        <p>This section will be implemented soon...</p>
+        
+        <div class="box">
+            <h3>Create Reservation <span class="badge post">POST</span></h3>
+            <p>Create a new reservation (no authentication required)</p>
+            <div class="request-url">POST /api/reservations</div>
+            
+            <form id="create-reservation-form">
+                <div class="form-group">
+                    <label for="reservation-reservable-id">Reservable ID:</label>
+                    <input type="text" id="reservation-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
+                </div>
+                <div class="form-group">
+                    <label for="reservation-user-id">User ID:</label>
+                    <input type="text" id="reservation-user-id" name="user_id" required placeholder="UUID of the user">
+                </div>
+                <div class="form-group">
+                    <label for="reservation-start-time">Start Time (ISO8601):</label>
+                    <input type="datetime-local" id="reservation-start-time" name="start_time_iso8601" required>
+                </div>
+                <div class="form-group">
+                    <label for="reservation-end-time">End Time (ISO8601):</label>
+                    <input type="datetime-local" id="reservation-end-time" name="end_time_iso8601" required>
+                </div>
+                <div class="form-group">
+                    <label for="reservation-notes">Notes:</label>
+                    <textarea id="reservation-notes" name="notes" rows="3" placeholder="Optional notes about the reservation"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="reservation-constraint-inputs">Constraint Inputs (JSON):</label>
+                    <textarea id="reservation-constraint-inputs" name="constraint_inputs" rows="4" placeholder='{"key1": "value1", "key2": "value2"}'></textarea>
+                </div>
+                <button type="submit">Create Reservation</button>
+            </form>
+            
+            <div id="create-reservation-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Reservable Reservations <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get all reservations for a reservable</p>
+            <div class="request-url">GET /api/reservations/reservable/:reservable_id</div>
+            
+            <form id="get-reservable-reservations-form">
+                <div class="form-group">
+                    <label for="get-reservations-reservable-id">Reservable ID:</label>
+                    <input type="text" id="get-reservations-reservable-id" name="reservable_id" required placeholder="UUID of the reservable">
+                </div>
+                <button type="submit">Get Reservations</button>
+            </form>
+            
+            <div id="reservable-reservations-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get User Reservations <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get all reservations for a user</p>
+            <div class="request-url">GET /api/reservations/user/:user_id</div>
+            
+            <form id="get-user-reservations-form">
+                <div class="form-group">
+                    <label for="get-reservations-user-id">User ID:</label>
+                    <input type="text" id="get-reservations-user-id" name="user_id" required placeholder="UUID of the user">
+                </div>
+                <button type="submit">Get Reservations</button>
+            </form>
+            
+            <div id="user-reservations-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="box">
+            <h3>Get Reservation <span class="badge get">GET</span> <span class="badge auth">AUTH</span></h3>
+            <p>Get a single reservation by ID</p>
+            <div class="request-url">GET /api/reservations/:id</div>
+            
+            <form id="get-reservation-form">
+                <div class="form-group">
+                    <label for="get-reservation-id">Reservation ID:</label>
+                    <input type="text" id="get-reservation-id" name="id" required placeholder="UUID of the reservation">
+                </div>
+                <button type="submit">Get Reservation</button>
+            </form>
+            
+            <div id="get-reservation-result" class="result" style="display: none;"></div>
+        </div>
     </div>
 
     <div id="docs" class="tab-content">
