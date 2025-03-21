@@ -77,10 +77,12 @@ BEGIN
     JOIN pg_type t ON p.prorettype = t.oid
     WHERE p.oid = function_name::regproc::oid;
 
-    -- Verify that function has arguments and takes exactly one JSONB argument
+    -- Verify that function has arguments and takes exactly three JSONB arguments
     IF func_args IS NULL OR 
-       array_length(func_args, 1) != 1 OR 
-       func_args[1] != jsonb_type_oid THEN
+       array_length(func_args, 1) != 3 OR 
+       func_args[1] != jsonb_type_oid OR
+       func_args[2] != jsonb_type_oid OR
+       func_args[3] != jsonb_type_oid THEN
         RETURN FALSE;
     END IF;
 
@@ -93,10 +95,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Drop the old validators table if it exists
-DROP TABLE IF EXISTS validators CASCADE;
-
--- Create the new validators table with function references
+-- Records of validators for a reservable
 CREATE TABLE validators (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     reservable_id UUID NOT NULL REFERENCES reservables(id) ON DELETE CASCADE,
@@ -255,6 +254,245 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
+-- Function to check for reservation overlaps in a reservable and all its ancestors
+CREATE OR REPLACE FUNCTION check_parent_reservation_overlap(
+    p_reservable_id UUID,
+    p_start_time TIMESTAMP WITH TIME ZONE,
+    p_end_time TIMESTAMP WITH TIME ZONE
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_overlap_exists BOOLEAN := FALSE;
+    v_parent_id UUID;
+    v_parent_ids UUID[];
+BEGIN
+    -- Check input parameters
+    IF p_reservable_id IS NULL OR p_start_time IS NULL OR p_end_time IS NULL THEN
+        RAISE EXCEPTION 'Reservable ID, start time, and end time cannot be null';
+    END IF;
+    
+    IF p_start_time >= p_end_time THEN
+        RAISE EXCEPTION 'End time must be after start time';
+    END IF;
+    
+    -- Get all ancestor (parent) reservable IDs using recursive CTE
+    WITH RECURSIVE reservable_hierarchy AS (
+        -- Start with the direct parents of our reservable
+        SELECT parent_id, child_id
+        FROM reservable_collections
+        WHERE child_id = p_reservable_id
+        
+        UNION ALL
+        
+        -- Add parents of parents recursively
+        SELECT rc.parent_id, rc.child_id
+        FROM reservable_collections rc
+        JOIN reservable_hierarchy rh ON rc.child_id = rh.parent_id
+    )
+    SELECT array_agg(DISTINCT parent_id) INTO v_parent_ids
+    FROM reservable_hierarchy;
+    
+    -- If no parents found, return false (no overlaps)
+    IF v_parent_ids IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- Check for overlaps with any of the parent reservables
+    SELECT EXISTS (
+        SELECT 1 
+        FROM reservations 
+        WHERE reservable_id = ANY(v_parent_ids)
+        AND (
+            (start_time_standard, end_time_standard) OVERLAPS 
+            (p_start_time, p_end_time)
+        )
+    ) INTO v_overlap_exists;
+    
+    -- Return the result of the parent check
+    RETURN v_overlap_exists;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to check for reservation overlaps in all child reservables
+CREATE OR REPLACE FUNCTION check_child_reservation_overlap(
+    p_reservable_id UUID,
+    p_start_time TIMESTAMP WITH TIME ZONE,
+    p_end_time TIMESTAMP WITH TIME ZONE
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_overlap_exists BOOLEAN := FALSE;
+    v_child_ids UUID[];
+BEGIN
+    -- Check input parameters
+    IF p_reservable_id IS NULL OR p_start_time IS NULL OR p_end_time IS NULL THEN
+        RAISE EXCEPTION 'Reservable ID, start time, and end time cannot be null';
+    END IF;
+    
+    IF p_start_time >= p_end_time THEN
+        RAISE EXCEPTION 'End time must be after start time';
+    END IF;
+    
+    -- Get all descendant (child) reservable IDs using recursive CTE
+    WITH RECURSIVE reservable_hierarchy AS (
+        -- Start with the direct children of our reservable
+        SELECT parent_id, child_id
+        FROM reservable_collections
+        WHERE parent_id = p_reservable_id
+        
+        UNION ALL
+        
+        -- Add children of children recursively
+        SELECT rc.parent_id, rc.child_id
+        FROM reservable_collections rc
+        JOIN reservable_hierarchy rh ON rc.parent_id = rh.child_id
+    )
+    SELECT array_agg(DISTINCT child_id) INTO v_child_ids
+    FROM reservable_hierarchy;
+    
+    -- If no children found, return false (no overlaps)
+    IF v_child_ids IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- Check for overlaps with any of the child reservables
+    SELECT EXISTS (
+        SELECT 1 
+        FROM reservations 
+        WHERE reservable_id = ANY(v_child_ids)
+        AND status = 'approved'
+        AND (
+            (start_time_standard, end_time_standard) OVERLAPS 
+            (p_start_time, p_end_time)
+        )
+    ) INTO v_overlap_exists;
+    
+    -- Return the result of the child check
+    RETURN v_overlap_exists;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to check for reservation overlaps in the entire hierarchy
+-- This combines both parent and child overlap checks
+CREATE OR REPLACE FUNCTION check_hierarchy_reservation_overlap(
+    p_reservable_id UUID,
+    p_start_time TIMESTAMP WITH TIME ZONE,
+    p_end_time TIMESTAMP WITH TIME ZONE
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_direct_overlap BOOLEAN := FALSE;
+    v_parent_overlap BOOLEAN := FALSE;
+    v_child_overlap BOOLEAN := FALSE;
+BEGIN
+    -- Check input parameters
+    IF p_reservable_id IS NULL OR p_start_time IS NULL OR p_end_time IS NULL THEN
+        RAISE EXCEPTION 'Reservable ID, start time, and end time cannot be null';
+    END IF;
+    
+    IF p_start_time >= p_end_time THEN
+        RAISE EXCEPTION 'End time must be after start time';
+    END IF;
+    
+    -- First check for direct overlaps with the specified reservable
+    SELECT EXISTS (
+        SELECT 1 
+        FROM reservations 
+        WHERE reservable_id = p_reservable_id
+        AND status = 'approved'
+        AND (
+            (start_time_standard, end_time_standard) OVERLAPS 
+            (p_start_time, p_end_time)
+        )
+    ) INTO v_direct_overlap;
+    
+    -- If direct overlap is found, return true immediately
+    IF v_direct_overlap THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Check for parent overlaps
+    v_parent_overlap := check_parent_reservation_overlap(p_reservable_id, p_start_time, p_end_time);
+    
+    -- If parent overlap is found, return true
+    IF v_parent_overlap THEN
+        RETURN TRUE;
+    END IF;
+    
+    -- Check for child overlaps
+    v_child_overlap := check_child_reservation_overlap(p_reservable_id, p_start_time, p_end_time);
+    
+    -- Return the result combining all checks
+    RETURN v_direct_overlap OR v_parent_overlap OR v_child_overlap;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Default overlap validation function
+CREATE OR REPLACE FUNCTION validator_reservation_overlap(
+    reservation JSONB,
+    reservable_constraints JSONB,
+    input_constraints JSONB
+) RETURNS BOOLEAN AS $$
+DECLARE
+    v_reservable_id UUID;
+    v_start_time TIMESTAMP WITH TIME ZONE;
+    v_end_time TIMESTAMP WITH TIME ZONE;
+BEGIN
+    -- Extract values from the reservation JSONB object
+    v_reservable_id := reservation->>'reservable_id';
+    v_start_time := reservation->>'start_time';
+    v_end_time := reservation->>'end_time';
+
+    -- Check for overlapping reservations in the entire hierarchy
+    RETURN NOT check_hierarchy_reservation_overlap(
+        v_reservable_id,
+        v_start_time,
+        v_end_time
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION make_reservation(
+    p_reservable_id UUID,
+    p_user_id UUID,
+    p_start_time_standard TIMESTAMP WITH TIME ZONE,
+    p_end_time_standard TIMESTAMP WITH TIME ZONE,
+    p_start_time_iso8601 VARCHAR(50),
+    p_end_time_iso8601 VARCHAR(50),
+    p_notes TEXT DEFAULT NULL,
+    p_constraint_inputs JSONB DEFAULT '{}'::JSONB
+) RETURNS TABLE (
+    reservation_id UUID,
+    status reservation_status,
+    error_message TEXT,
+    success BOOLEAN
+) AS $$
+DECLARE
+    v_reservation_id UUID;
+    v_status reservation_status;
+    v_error_message TEXT;
+BEGIN
+    -- Call the create_reservation procedure
+    CALL create_reservation(
+        p_reservable_id,
+        p_user_id,
+        p_start_time_standard,
+        p_end_time_standard,
+        p_start_time_iso8601,
+        p_end_time_iso8601,
+        p_notes,
+        p_constraint_inputs,
+        v_reservation_id, -- OUT parameter
+        v_status,         -- OUT parameter
+        v_error_message   -- OUT parameter
+    );
+    
+    -- Return the results in a structured table format
+    RETURN QUERY
+    SELECT 
+        v_reservation_id,
+        v_status,
+        v_error_message;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Modify the create_reservation procedure
 CREATE OR REPLACE PROCEDURE create_reservation(
     p_reservable_id UUID,
@@ -277,7 +515,6 @@ DECLARE
     v_constraint_value text;
     v_constraint_type constraint_type;
     v_validation_result boolean;
-    v_validation_data jsonb;
     v_status reservation_status := 'pending';
     v_all_constraints_valid boolean := true;
     v_fail_message text;
@@ -321,6 +558,7 @@ BEGIN
         RETURN;
     END IF;
 
+    -- TODO: The lock may be too specific. Get rid of the start and end time to make it more general.
     -- Generate and acquire lock first
     v_lock_id := generate_reservation_lock_id(
         p_reservable_id, 
@@ -334,20 +572,12 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Check for overlapping reservations
-    IF EXISTS (
-        SELECT 1 
-        FROM reservations 
-        WHERE reservable_id = p_reservable_id
-        AND status = 'approved'
-        AND (
-            (start_time_standard, end_time_standard) OVERLAPS 
-            (p_start_time_standard, p_end_time_standard)
-        )
-    ) THEN
-        p_error_message := 'Overlapping reservation exists';
+    -- Check for overlapping reservations in the entire hierarchy
+    -- Automatically added during reservable creation
+    /* IF check_hierarchy_reservation_overlap(p_reservable_id, p_start_time_standard, p_end_time_standard) THEN
+        p_error_message := 'Overlapping reservation exists in this reservable or its hierarchy (parents/children)';
         RETURN;
-    END IF;
+    END IF; */
 
     -- First, validate that all input constraint names exist for this reservable
     SELECT array_agg(key)
@@ -388,18 +618,6 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Prepare the validation data
-    v_validation_data := jsonb_build_object(
-        'reservation', jsonb_build_object(
-            'user_id', p_user_id,
-            'reservable_id', p_reservable_id,
-            'start_time', p_start_time_standard,
-            'end_time', p_end_time_standard,
-            'notes', p_notes
-        ),
-        'constraints', p_constraint_inputs
-    );
-
     -- Run all validators for this reservable
     FOR v_validator IN 
         SELECT v.id, v.description, v.validation_function
@@ -408,9 +626,27 @@ BEGIN
     LOOP
         -- Execute the validation function with our data
         BEGIN
-            EXECUTE format('SELECT %s($1)', v_validator.validation_function) 
+            -- Create separate JSONB objects for each parameter
+            EXECUTE format('SELECT %s($1, $2, $3)', v_validator.validation_function) 
             INTO v_validation_result 
-            USING v_validation_data;
+            USING 
+                -- First parameter: Reservation data
+                jsonb_build_object(
+                    'reservable_id', p_reservable_id,
+                    'user_id', p_user_id,
+                    'start_time', p_start_time_standard,
+                    'end_time', p_end_time_standard,
+                    'notes', p_notes
+                ),
+                -- Second parameter: Original constraints associated with the reservable
+                -- Simple format with constraint names as keys and their values directly
+                (
+                    SELECT jsonb_object_agg(name, value)
+                    FROM constraints
+                    WHERE reservable_id = p_reservable_id
+                ),
+                -- Third parameter: Constraint inputs for this reservation
+                p_constraint_inputs;
             
             -- If validation fails, set status and exit loop
             IF NOT v_validation_result THEN
