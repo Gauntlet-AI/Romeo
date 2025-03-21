@@ -1,4 +1,8 @@
-const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
+const { createLanguageModelService } = require('./languageModelService');
+const { generateValidatorPrompt } = require('./promptGenerator');
+const { getReservableContext } = require('./databaseContext');
+const { sequelize } = require('../config/database');
 require('dotenv').config();
 
 /**
@@ -9,156 +13,54 @@ require('dotenv').config();
  */
 const generateValidatorFunction = async (description, reservableId) => {
   try {
-    // This is a placeholder for actual OpenAI API integration
-    // In a production environment, you would use the OpenAI API
-    // Here we're using a simplified approach with function templates
+    // Generate a unique validator function name with UUID
+    const validatorUuid = uuidv4().replace(/-/g, '');
+    const functionName = `validator_${validatorUuid}`;
     
-    // Generate a unique function name based on reservable ID and timestamp
-    const functionName = `validator_${reservableId.replace(/-/g, '')}_${Date.now()}`;
+    // Get the context for this reservable (includes constraints)
+    const context = await getReservableContext(reservableId);
     
-    // Create the PostgreSQL function based on the description
-    // For now, we're using a simplified template approach
-    // In a real implementation, you would use OpenAI to generate this
-    const functionBody = generateFunctionBodyFromDescription(description);
+    // Generate a smart prompt based on the description
+    const prompt = generateValidatorPrompt(description, context);
     
-    // The complete SQL statement to create the function
+    // Create the language model service using the configured type
+    // This allows for swapping between different LLM providers
+    // TODO: Replace with dependency injection
+    const modelType = process.env.LLM_SERVICE_TYPE || 'openai';
+    const modelService = createLanguageModelService(modelType, {
+      // Service-specific configuration can be passed here
+      model: process.env.LLM_MODEL || 'gpt-4',
+      temperature: 0.2,
+      maxTokens: 1000
+    });
+    
+    // Query the language model to generate the function body
+    const systemMessage = 'You are an expert PostgreSQL developer specializing in creating validator functions for a reservation system.';
+    const functionBody = await modelService.generateText(prompt, { systemMessage });
+    
+    // The complete SQL statement to create the function using the new signature with three parameters
     const sqlStatement = `
-      CREATE OR REPLACE FUNCTION ${functionName}(data jsonb)
-      RETURNS boolean AS $$
-      BEGIN
-        ${functionBody}
-      END;
+      CREATE OR REPLACE FUNCTION ${functionName}(
+        reservation JSONB,
+        reservable_constraints JSONB,
+        input_constraints JSONB
+      ) RETURNS boolean AS $$
+      ${functionBody}
       $$ LANGUAGE plpgsql;
     `;
     
-    // Execute the SQL statement (in a real implementation)
-    // await sequelize.query(sqlStatement);
+    // In a real implementation, you would execute the SQL statement
+    await sequelize.query(sqlStatement);
+    // console.log(`Generated validator function: ${functionName}`);
+    // console.log(sqlStatement);
     
     return functionName;
   } catch (error) {
     console.error('Error generating validator function:', error);
-    throw new Error('Failed to generate validator function');
+    throw new Error(`Failed to generate validator function: ${error.message}`);
   }
 };
 
-/**
- * Generate a function body based on the description
- * This is a placeholder implementation; in a real application, you would use OpenAI
- * @param {string} description - Human-readable description of the validator logic
- * @returns {string} - PostgreSQL function body
- */
-const generateFunctionBodyFromDescription = (description) => {
-  // In a real implementation, this would call OpenAI API
-  // For now, we'll create a simple template
-  
-  // Basic template that evaluates based on common scenarios
-  const lowerDesc = description.toLowerCase();
-  
-  if (lowerDesc.includes('weekend') || lowerDesc.includes('saturday') || lowerDesc.includes('sunday')) {
-    return `
-      -- Check if the reservation is on a weekend
-      DECLARE
-        reservation_date date;
-      BEGIN
-        reservation_date := (data->'reservation'->'start_time')::timestamp::date;
-        IF EXTRACT(DOW FROM reservation_date) IN (0, 6) THEN
-          -- 0 = Sunday, 6 = Saturday
-          RETURN true;
-        ELSE
-          RETURN false;
-        END IF;
-      `;
-  } else if (lowerDesc.includes('time') && (lowerDesc.includes('after') || lowerDesc.includes('before'))) {
-    return `
-      -- Check if the reservation is within a certain time period
-      DECLARE
-        start_time timestamp;
-        hour int;
-      BEGIN
-        start_time := (data->'reservation'->'start_time')::timestamp;
-        hour := EXTRACT(HOUR FROM start_time);
-        
-        -- Only allow reservations between 9 AM and 5 PM
-        IF hour >= 9 AND hour < 17 THEN
-          RETURN true;
-        ELSE
-          RETURN false;
-        END IF;
-      `;
-  } else if (lowerDesc.includes('duration') || lowerDesc.includes('length')) {
-    return `
-      -- Check if the reservation duration is acceptable
-      DECLARE
-        start_time timestamp;
-        end_time timestamp;
-        duration interval;
-      BEGIN
-        start_time := (data->'reservation'->'start_time')::timestamp;
-        end_time := (data->'reservation'->'end_time')::timestamp;
-        duration := end_time - start_time;
-        
-        -- Ensure duration is between 30 minutes and 4 hours
-        IF extract(epoch from duration)/3600 >= 0.5 AND extract(epoch from duration)/3600 <= 4 THEN
-          RETURN true;
-        ELSE
-          RETURN false;
-        END IF;
-      `;
-  } else {
-    // Default implementation
-    return `
-      -- Generic validation based on description: "${description}"
-      -- In a real implementation, this would be generated by OpenAI
-      RETURN true; -- Always pass for now
-    `;
-  }
-};
-
-/**
- * Call the OpenAI API to generate a validator function
- * @param {string} description - Human-readable description of the validator logic
- * @returns {Promise<string>} - Generated function body
- */
-const callOpenAI = async (description) => {
-  // This would be the actual implementation using the OpenAI API
-  // This is a placeholder for demonstration
-  try {
-    // Example OpenAI API call (uncomment and configure if you have an API key)
-    /*
-    const response = await axios.post(
-      'https://api.openai.com/v1/completions',
-      {
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert PostgreSQL developer. Generate a validator function that returns a boolean based on the following description.'
-          },
-          {
-            role: 'user',
-            content: `Create a PostgreSQL function that takes a JSONB parameter named 'data' and returns a boolean. The function should: ${description}`
-          }
-        ],
-        temperature: 0.2,
-        max_tokens: 500
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-        }
-      }
-    );
-    
-    return response.data.choices[0].text.trim();
-    */
-    
-    // For demonstration, return a placeholder
-    return generateFunctionBodyFromDescription(description);
-  } catch (error) {
-    console.error('Error calling OpenAI API:', error);
-    throw new Error('Failed to generate function using OpenAI');
-  }
-};
-
-module.exports = { generateValidatorFunction }; 
+module.exports = { 
+  generateValidatorFunction,
+}; 

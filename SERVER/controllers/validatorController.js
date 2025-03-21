@@ -30,7 +30,8 @@ const createValidator = async (req, res) => {
     // Generate the validator function using LLM
     const functionName = await generateValidatorFunction(description, reservable_id);
 
-    // Create the SQL function in the database
+    // Verify the validator function
+    // TODO: Log the result of the verification
     await sequelize.query(`
       SELECT verify_validator_function('${functionName}');
     `);

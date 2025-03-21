@@ -39,9 +39,9 @@ const createReservation = async (req, res) => {
     const start_time_standard = new Date(start_time_iso8601);
     const end_time_standard = new Date(end_time_iso8601);
 
-    // Call the PostgreSQL stored procedure to create the reservation
-    const [result] = await sequelize.query(`
-      CALL create_reservation(
+    // Call the PostgreSQL function to create the reservation
+    const [results] = await sequelize.query(`
+      SELECT * FROM make_reservation(
         :reservable_id,
         :user_id,
         :start_time_standard,
@@ -49,7 +49,7 @@ const createReservation = async (req, res) => {
         :start_time_iso8601,
         :end_time_iso8601,
         :notes,
-        :constraint_inputs
+        :constraint_inputs::jsonb
       )
     `, {
       replacements: {
@@ -64,23 +64,29 @@ const createReservation = async (req, res) => {
       }
     });
 
-    // Check the result from the stored procedure
-    if (result.p_error_message) {
+    // Check the result from the function
+    console.log(results);
+    
+    // Get the first row of results
+    const result = results[0];
+    
+    // Check if the operation was successful
+    if (result.error_message) {
       return res.status(400).json({
         success: false,
-        message: result.p_error_message
+        message: result.error_message || 'Reservation creation failed'
       });
     }
 
     // If successful, fetch the created reservation
-    const reservation = await Reservation.findByPk(result.p_reservation_id);
+    const reservation = await Reservation.findByPk(result.reservation_id);
 
     return res.status(201).json({
       success: true,
       message: 'Reservation created successfully',
       data: {
         reservation,
-        status: result.p_status
+        status: result.status
       }
     });
   } catch (error) {

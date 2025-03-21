@@ -1,4 +1,4 @@
-const { Reservable, ReservableCollection } = require('../models');
+const { Reservable, ReservableCollection, Validator } = require('../models');
 
 /**
  * Create a new reservable
@@ -15,6 +15,14 @@ const createReservable = async (req, res) => {
       name,
       description,
       user_id: userId
+    });
+
+    // Automatically add a validator with validation_function 'check_hierarchy_reservation_overlap'
+    await Validator.create({
+      reservable_id: reservable.id,
+      description: 'Prevent overlap',
+      validation_function: 'validator_reservation_overlap',
+      is_active: true
     });
 
     return res.status(201).json({
