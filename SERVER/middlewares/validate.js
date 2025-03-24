@@ -1,4 +1,4 @@
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 const { isUUID } = require('validator');
 const User = require('../models/User');
 
@@ -172,6 +172,33 @@ const uuidParam = [
     })
 ];
 
+/**
+ * Validation for time range query parameters
+ * Both start_time and end_time are optional, but if provided,
+ * they must be in ISO8601 format and end_time must be after start_time
+ */
+const timeRangeQueryValidation = [
+  query('start_time')
+    .optional()
+    .isISO8601()
+    .withMessage('Start time must be in ISO8601 format'),
+  query('end_time')
+    .optional()
+    .isISO8601()
+    .withMessage('End time must be in ISO8601 format')
+    .custom((value, { req }) => {
+      // Only validate if both start_time and end_time are provided
+      if (value && req.query.start_time) {
+        const endTime = new Date(value);
+        const startTime = new Date(req.query.start_time);
+        if (endTime <= startTime) {
+          throw new Error('End time must be after start time');
+        }
+      }
+      return true;
+    })
+];
+
 module.exports = {
   validate,
   loginEmailValidation,
@@ -182,5 +209,6 @@ module.exports = {
   constraintUpdateValidation,
   validatorValidation,
   reservationValidation,
-  uuidParam
+  uuidParam,
+  timeRangeQueryValidation
 }; 

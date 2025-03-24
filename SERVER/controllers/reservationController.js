@@ -1,5 +1,6 @@
 const { Reservation, Reservable, User } = require('../models');
 const { sequelize } = require('../config/database');
+const { Op } = require('sequelize');
 
 /**
  * Create a new reservation
@@ -92,13 +93,14 @@ const createReservation = async (req, res) => {
 };
 
 /**
- * Get all reservations for a reservable
- * @param {Object} req - Express request object
+ * Get all reservations for a reservable with optional time filtering
+ * @param {Object} req - Express request object with optional query parameters start_time and end_time
  * @param {Object} res - Express response object
  */
 const getReservableReservations = async (req, res) => {
   try {
     const { reservable_id } = req.params;
+    const { start_time, end_time } = req.query;
 
     // Check if reservable exists
     const reservable = await Reservable.findByPk(reservable_id);
@@ -109,16 +111,60 @@ const getReservableReservations = async (req, res) => {
       });
     }
 
-    // Get all reservations for the reservable
+    // Prepare where clause
+    const whereClause = { reservable_id };
+    
+    // If start_time is provided, add filtering condition
+    // Find reservations whose start_time or end_time is >= the provided start_time
+    if (start_time) {
+      const startDate = new Date(start_time);
+      whereClause[Op.or] = [
+        { start_time_standard: { [Op.gte]: startDate } },
+        { end_time_standard: { [Op.gte]: startDate } }
+      ];
+    }
+    
+    // If end_time is provided, add filtering condition
+    // Find reservations whose start_time or end_time is <= the provided end_time
+    if (end_time) {
+      const endDate = new Date(end_time);
+      
+      // If we already have start_time filtering
+      if (whereClause[Op.or]) {
+        // We need to create an AND condition that combines our existing OR with the new OR
+        whereClause[Op.and] = [
+          { [Op.or]: whereClause[Op.or] }, // Existing start_time OR condition
+          { [Op.or]: [
+            { start_time_standard: { [Op.lte]: endDate } },
+            { end_time_standard: { [Op.lte]: endDate } }
+          ]}
+        ];
+        
+        // Remove the original OR since it's now wrapped in AND
+        delete whereClause[Op.or];
+      } else {
+        // If no start_time was provided, just add the end_time OR condition
+        whereClause[Op.or] = [
+          { start_time_standard: { [Op.lte]: endDate } },
+          { end_time_standard: { [Op.lte]: endDate } }
+        ];
+      }
+    }
+
+    // Get reservations with the constructed where clause
     const reservations = await Reservation.findAll({
-      where: { reservable_id },
+      where: whereClause,
       order: [['created_at', 'DESC']]
     });
-
+    
     return res.status(200).json({
       success: true,
       data: {
-        reservations
+        reservations,
+        filters: {
+          start_time: start_time || null,
+          end_time: end_time || null
+        }
       }
     });
   } catch (error) {
