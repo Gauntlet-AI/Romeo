@@ -5,6 +5,7 @@ interface TimePickerProps {
   title: string;
   reservations: Reservation[]; // Already filtered by date in parent component
   selectedDate: Date;
+  onCreateReservation?: (start: Date, end: Date) => void;
 }
 
 // Helper function to group overlapping reservations
@@ -49,11 +50,18 @@ const ReservationBlob: React.FC<ReservationBlobProps> = ({ reservation, style })
 const TimePicker: React.FC<TimePickerProps> = ({
   title,
   reservations,
-  selectedDate
+  selectedDate,
+  onCreateReservation
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [hiddenAbove, setHiddenAbove] = useState(0);
   const [hiddenBelow, setHiddenBelow] = useState(0);
+  
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<Date | null>(null);
+  const [dragEnd, setDragEnd] = useState<Date | null>(null);
   
   // Generate time slots for 24 hours
   const timeSlots: TimeSlot[] = useMemo(() => {
@@ -214,6 +222,106 @@ const TimePicker: React.FC<TimePickerProps> = ({
     };
   };
 
+  // Function to convert Y position to a time
+  const yPositionToTime = (y: number): Date => {
+    if (!contentRef.current) {
+      return new Date(selectedDate);
+    }
+    
+    const rect = contentRef.current.getBoundingClientRect();
+    const percentage = Math.max(0, Math.min(1, (y - rect.top) / rect.height));
+    
+    // Convert percentage to minutes in a day (0-1440)
+    const minutesInDay = percentage * 24 * 60;
+    const hours = Math.floor(minutesInDay / 60);
+    const minutes = Math.floor(minutesInDay % 60);
+    
+    const result = new Date(selectedDate);
+    result.setHours(hours, minutes, 0, 0);
+    return result;
+  };
+  
+  // Mouse event handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!onCreateReservation || e.button !== 0) return;
+    
+    const startTime = yPositionToTime(e.clientY);
+    setDragStart(startTime);
+    setDragEnd(startTime);
+    setIsDragging(true);
+  };
+  
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    
+    const currentTime = yPositionToTime(e.clientY);
+    setDragEnd(currentTime);
+  };
+  
+  const handleMouseUp = () => {
+    if (isDragging && dragStart && dragEnd && onCreateReservation) {
+      // Ensure dragStart is before dragEnd
+      const start = dragStart < dragEnd ? dragStart : dragEnd;
+      const end = dragStart < dragEnd ? dragEnd : dragStart;
+      
+      // Only create if the duration is at least 15 minutes
+      const durationMs = end.getTime() - start.getTime();
+      if (durationMs >= 15 * 60 * 1000) {
+        onCreateReservation(start, end);
+      }
+    }
+    
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  };
+  
+  // Cleanup event listeners on unmount
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      handleMouseUp();
+    };
+    
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, dragStart, dragEnd]);
+
+  // Helper function to format a time for display
+  const formatTimeDisplay = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  // Calculate position and height for drag selection
+  const getDragSelectionStyle = () => {
+    if (!dragStart || !dragEnd) return {};
+    
+    const dayStart = new Date(selectedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(24, 0, 0, 0);
+    
+    const totalMinutes = (dayEnd.getTime() - dayStart.getTime()) / (1000 * 60);
+    
+    // Ensure start is before end
+    const startTime = dragStart < dragEnd ? dragStart : dragEnd;
+    const endTime = dragStart < dragEnd ? dragEnd : dragStart;
+    
+    const startMinutes = (startTime.getTime() - dayStart.getTime()) / (1000 * 60);
+    const endMinutes = (endTime.getTime() - dayStart.getTime()) / (1000 * 60);
+    
+    const top = (startMinutes / totalMinutes) * 100;
+    const height = ((endMinutes - startMinutes) / totalMinutes) * 100;
+    
+    return {
+      top: `${top}%`,
+      height: `${height}%`
+    };
+  };
+
   return (
     <div className="w-full border rounded-lg shadow-sm bg-white">
       <div className="p-4 bg-gray-50 border-b rounded-t-lg flex justify-between items-center">
@@ -242,7 +350,13 @@ const TimePicker: React.FC<TimePickerProps> = ({
         )}
         
         {/* Container with padding for spacing around time content */}
-        <div className="relative h-[1440px] pt-4 pb-12">
+        <div 
+          ref={contentRef}
+          className="relative h-[1440px] pt-4 pb-12"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+        >
           {/* Fixed time markers that stay in place during scroll */}
           <div className="absolute left-0 top-0 h-full w-20 z-10 bg-white">
             {timeSlots.map((slot, index) => (
@@ -291,6 +405,21 @@ const TimePicker: React.FC<TimePickerProps> = ({
               }
               return null;
             })()}
+            
+            {/* Drag selection indicator */}
+            {isDragging && dragStart && dragEnd && (
+              <div 
+                className="absolute left-4 right-8 z-30 bg-blue-200 border-2 border-blue-400 rounded-md opacity-70 pointer-events-none flex flex-col justify-center items-center"
+                style={getDragSelectionStyle()}
+              >
+                <div className="bg-blue-600 text-white text-xs px-2 py-1 rounded-sm font-medium whitespace-nowrap">
+                  {formatTimeDisplay(dragStart < dragEnd ? dragStart : dragEnd)} - {formatTimeDisplay(dragStart < dragEnd ? dragEnd : dragStart)}
+                </div>
+                <div className="text-xs text-blue-800 font-medium mt-1">
+                  {Math.ceil(Math.abs(dragEnd.getTime() - dragStart.getTime()) / (1000 * 60))} min
+                </div>
+              </div>
+            )}
             
             {/* Reservation column container with padding */}
             <div className="absolute top-0 left-4 right-8 h-full flex">

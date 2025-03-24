@@ -116,7 +116,7 @@ const DUMMY_CHILD_RESERVABLES: Reservable[] = [
 ];
 
 export default function ReservablePage({ params }: { params: Promise<{ id: string }> }) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date("03-23-2025"));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [reservable, setReservable] = useState<Reservable | null>(null);
   const [childReservables, setChildReservables] = useState<Reservable[]>([]);
@@ -187,6 +187,11 @@ export default function ReservablePage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  const handleCreateReservation = (start: Date, end: Date) => {
+    console.log('Creating reservation:', { start, end });
+    // In a real app, you would send this data to the server
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">{reservable.name}</h1>
@@ -207,6 +212,7 @@ export default function ReservablePage({ params }: { params: Promise<{ id: strin
             title={`${reservable.name} - Schedule`}
             reservations={filteredParentReservations}
             selectedDate={selectedDate}
+            onCreateReservation={handleCreateReservation}
           />
         </div>
       </div>
