@@ -2,6 +2,7 @@ const { User } = require('../models');
 const { generateToken } = require('../config/jwt');
 const crypto = require('crypto');
 const { Resend } = require('resend');
+const { verifyToken } = require('../config/jwt');
 
 // Initialize Resend with API key
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -61,6 +62,45 @@ const requestLoginEmail = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error while requesting login email'
+    });
+  }
+};
+
+/**
+ * Verify JWT token
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const verifyJWTToken = async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token is required'
+      });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Token is valid',
+      data: {
+        user: decoded
+      }
+    });
+  } catch (error) {
+    console.error('Error verifying JWT token:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while verifying JWT token'
     });
   }
 };
@@ -196,5 +236,6 @@ const sendLoginEmail = async (email, name, loginLink) => {
 
 module.exports = {
   requestLoginEmail,
-  verifyLoginToken
+  verifyLoginToken,
+  verifyJWTToken
 }; 

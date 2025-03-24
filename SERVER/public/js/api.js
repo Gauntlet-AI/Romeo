@@ -337,6 +337,58 @@ const AuthAPI = {
                 <div class="error-message">Error: ${error.message}</div>
             `;
         }
+    },
+
+    /**
+     * Verify a JWT token and get user information
+     * @param {String} token JWT token to verify (optional, uses active token if not provided)
+     * @returns {Promise} Promise with result
+     */
+    verifyJWTToken: async function(token) {
+        const resultElement = document.getElementById('verify-jwt-result');
+        resultElement.style.display = 'none';
+        
+        try {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="info-message">Verifying JWT token, please wait...</div>
+            `;
+            
+            // If no token is provided, use the active token
+            const tokenToVerify = token || Auth.getActiveToken();
+            
+            if (!tokenToVerify) {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: No token provided and no active token found. Please enter a token or authenticate first.</div>
+                `;
+                return;
+            }
+            
+            const response = await fetch(`${API.baseUrl}/api/auth/verifyjwt?token=${encodeURIComponent(tokenToVerify)}`, {
+                method: 'GET'
+            });
+            
+            const data = await response.json();
+            
+            resultElement.style.display = 'block';
+            
+            if (response.ok) {
+                resultElement.innerHTML = `
+                    <div class="success-message">Token is valid! User information retrieved successfully.</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            } else {
+                resultElement.innerHTML = `
+                    <div class="error-message">Error: ${data.message || 'Token verification failed'}</div>
+                    <pre><code>${JSON.stringify(data, null, 2)}</code></pre>
+                `;
+            }
+        } catch (error) {
+            resultElement.style.display = 'block';
+            resultElement.innerHTML = `
+                <div class="error-message">Error: ${error.message}</div>
+            `;
+        }
     }
 };
 
@@ -1837,5 +1889,11 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const token = document.getElementById('login-token').value;
         AuthAPI.verifyLoginToken(token);
+    });
+    
+    document.getElementById('verify-jwt-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const token = document.getElementById('jwt-token-input').value.trim();
+        AuthAPI.verifyJWTToken(token);
     });
 }); 

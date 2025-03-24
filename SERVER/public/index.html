@@ -112,6 +112,23 @@
             
             <div id="verify-token-result" class="result" style="display: none;"></div>
         </div>
+
+        <div class="box">
+            <h3>Verify JWT Token <span class="badge get">GET</span></h3>
+            <p>Verify if a JWT token is valid and get user information</p>
+            <div class="request-url">GET /api/auth/verifyjwt?token=TOKEN</div>
+            
+            <form id="verify-jwt-form">
+                <div class="form-group">
+                    <label for="jwt-token-input">JWT Token:</label>
+                    <textarea id="jwt-token-input" name="token" required placeholder="JWT token to verify"></textarea>
+                    <p class="hint">Leave empty to use your current active token</p>
+                </div>
+                <button type="submit">Verify JWT</button>
+            </form>
+            
+            <div id="verify-jwt-result" class="result" style="display: none;"></div>
+        </div>
     </div>
 
     <div id="reservable" class="tab-content">
@@ -595,6 +612,14 @@
             <li>Verify the token from the link with GET /api/auth/verify?token=TOKEN</li>
             <li>On successful verification, you'll receive a JWT token</li>
         </ol>
+        
+        <h4>3. JWT Token Verification</h4>
+        <p>You can verify if a JWT token is valid and get the associated user information:</p>
+        <ul>
+            <li>Use GET /api/auth/verifyjwt?token=TOKEN to validate a token</li>
+            <li>If valid, the response will include the decoded user information</li>
+            <li>This is useful for checking token validity or retrieving user data from a token</li>
+        </ul>
         
         <p>Include the JWT token in the Authorization header:</p>
         <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
