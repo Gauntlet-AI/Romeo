@@ -1,0 +1,53 @@
+.calendar-container {
+  width: 100%;
+}
+
+.calendar-container :global(.react-calendar) {
+  width: 100%;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+}
+
+.calendar-container :global(.react-calendar__tile--now) {
+  background-color: #dbeafe;
+}
+
+.calendar-container :global(.react-calendar__tile--active) {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.calendar-container :global(.react-calendar__tile--hasActive) {
+  background-color: #93c5fd;
+}
+
+.timePicker-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+.timeSlot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.timeSlot-reserved {
+  background-color: #ebf5ff;
+}
+
+.childReservablesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .childReservablesGrid {
+    grid-template-columns: 1fr;
+  }
+} 
