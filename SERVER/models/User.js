@@ -17,7 +17,7 @@ const User = sequelize.define('User', {
   },
   name: {
     type: DataTypes.STRING(255),
-    allowNull: false
+    allowNull: true
   },
   status: {
     type: DataTypes.ENUM('pending', 'approved'),
