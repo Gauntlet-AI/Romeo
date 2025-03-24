@@ -3,7 +3,7 @@ import { Reservation } from '@/types/reservation.type';
 
 interface TimePickerProps {
   title: string;
-  reservations: Reservation[];
+  reservations: Reservation[]; // Already filtered by date in parent component
   selectedDate: Date;
 }
 
@@ -161,6 +161,24 @@ const TimePicker: React.FC<TimePickerProps> = ({
       container.removeEventListener('scroll', handleScroll);
     };
   }, [processedReservations]);
+  
+  // Scroll to current time on initial load
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    // Get current time and scroll to it
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Calculate position (as percentage of 24 hours)
+    const currentTimePercentage = (currentHour * 60 + currentMinute) / (24 * 60);
+    const scrollPosition = currentTimePercentage * 1440;
+    
+    // Scroll to position with some offset to center it
+    container.scrollTop = scrollPosition - (container.clientHeight / 2);
+  }, []);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -198,9 +216,16 @@ const TimePicker: React.FC<TimePickerProps> = ({
 
   return (
     <div className="w-full border rounded-lg shadow-sm bg-white">
-      <div className="p-4 bg-gray-50 border-b rounded-t-lg">
-        <h3 className="text-lg font-semibold">{title}</h3>
-        <p className="text-sm text-gray-500 mt-1">{formatDate(selectedDate)}</p>
+      <div className="p-4 bg-gray-50 border-b rounded-t-lg flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">{title}</h3>
+          <p className="text-sm text-gray-500 mt-1">{formatDate(selectedDate)}</p>
+        </div>
+        {reservations.length > 0 && (
+          <div className="text-sm text-gray-600 font-medium">
+            {reservations.length} {reservations.length === 1 ? 'reservation' : 'reservations'}
+          </div>
+        )}
       </div>
       
       <div 
@@ -242,11 +267,36 @@ const TimePicker: React.FC<TimePickerProps> = ({
               />
             ))}
             
+            {/* Current time indicator */}
+            {(() => {
+              const now = new Date();
+              const today = new Date();
+              const selectedDay = new Date(selectedDate);
+              
+              // Only show current time indicator if viewing today
+              if (today.toDateString() === selectedDay.toDateString()) {
+                const percentage = (now.getHours() * 60 + now.getMinutes()) / (24 * 60) * 100;
+                return (
+                  <div 
+                    className="absolute left-0 right-0 z-20 flex items-center"
+                    style={{ top: `${percentage}%` }}
+                  >
+                    <div className="w-3 h-3 bg-red-500 rounded-full -translate-x-1.5"></div>
+                    <div className="flex-1 h-0.5 bg-red-400"></div>
+                    <div className="bg-red-500 text-white text-xs rounded-sm px-1 py-0.5 -translate-y-2.5">
+                      {now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
             {/* Reservation column container with padding */}
             <div className="absolute top-0 left-4 right-8 h-full flex">
               {reservations.length === 0 ? (
                 <div className="flex items-center justify-center w-full h-full text-gray-500">
-                  
+                  No reservations on this date
                 </div>
               ) : (
                 // Create columns based on the maximum number of overlapping reservations

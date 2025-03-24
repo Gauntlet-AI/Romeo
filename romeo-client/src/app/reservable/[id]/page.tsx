@@ -116,7 +116,7 @@ const DUMMY_CHILD_RESERVABLES: Reservable[] = [
 ];
 
 export default function ReservablePage({ params }: { params: Promise<{ id: string }> }) {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date("03-23-2025"));
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [reservable, setReservable] = useState<Reservable | null>(null);
   const [childReservables, setChildReservables] = useState<Reservable[]>([]);
@@ -141,14 +141,39 @@ export default function ReservablePage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  // Filter reservations for the parent reservable
-  const parentReservations = reservations.filter(
-    reservation => reservation.reservable_id === reservable.id
-  );
+  // Filter reservations by selected date
+  const filterReservationsByDate = (reservs: Reservation[]) => {
+    const selectedDateStr = selectedDate.toISOString().split('T')[0];
+    
+    return reservs.filter(reservation => {
+      const startDate = new Date(reservation.start_time_iso8601);
+      const endDate = new Date(reservation.end_time_iso8601);
+      
+      // Convert to date strings for comparison
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      // Include if reservation starts or ends on the selected date
+      // or if it spans across the selected date
+      return startDateStr === selectedDateStr || 
+             endDateStr === selectedDateStr || 
+             (startDate < selectedDate && endDate > selectedDate);
+    });
+  };
 
-  // Get reservations for each child reservable
-  const getChildReservations = (childId: string) => {
-    return reservations.filter(reservation => reservation.reservable_id === childId);
+  // Filter reservations for the parent reservable
+  const parentReservations = reservations
+    .filter(reservation => reservation.reservable_id === reservable.id);
+
+  // Get date-filtered reservations for the parent
+  const filteredParentReservations = filterReservationsByDate(parentReservations);
+
+  // Get filtered reservations for each child reservable
+  const getFilteredChildReservations = (childId: string) => {
+    const childReservations = reservations
+      .filter(reservation => reservation.reservable_id === childId);
+      
+    return filterReservationsByDate(childReservations);
   };
 
   // Handle calendar date change - properly typed for react-calendar
@@ -164,20 +189,23 @@ export default function ReservablePage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">{reservable.name}</h1>
+      <h1 className="text-3xl font-bold mb-6">{reservable.name}</h1>
+      <p className="text-gray-600 mb-8">{reservable.description}</p>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div className={styles['calendar-container']}>
-          <Calendar 
-            onChange={handleDateChange} 
-            value={selectedDate}
-          />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+        <div className="lg:col-span-1">
+          <div className={styles['calendar-container']}>
+            <Calendar 
+              onChange={handleDateChange} 
+              value={selectedDate}
+            />
+          </div>
         </div>
         
-        <div className={styles['timePicker-container']}>
+        <div className="lg:col-span-2">
           <TimePicker
             title={`${reservable.name} - Schedule`}
-            reservations={parentReservations}
+            reservations={filteredParentReservations}
             selectedDate={selectedDate}
           />
         </div>
@@ -185,12 +213,12 @@ export default function ReservablePage({ params }: { params: Promise<{ id: strin
       
       <div className="mt-12">
         <h2 className="text-2xl font-semibold mb-6">Child Reservables</h2>
-        <div className={styles.childReservablesGrid}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {childReservables.map(childReservable => (
             <TimePicker
               key={childReservable.id}
               title={childReservable.name}
-              reservations={getChildReservations(childReservable.id)}
+              reservations={getFilteredChildReservations(childReservable.id)}
               selectedDate={selectedDate}
             />
           ))}
