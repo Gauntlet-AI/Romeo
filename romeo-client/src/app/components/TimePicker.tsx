@@ -18,11 +18,6 @@ interface TimeSlot {
   displayTime: string;
 }
 
-interface HiddenIndicatorProps {
-  count: number;
-  position: 'top' | 'bottom';
-}
-
 interface ReservationBlobProps {
   reservation: Reservation;
   style: {
@@ -30,21 +25,6 @@ interface ReservationBlobProps {
     height: string;
   };
 }
-
-// Indicator component for hidden reservations
-const HiddenIndicator: React.FC<HiddenIndicatorProps> = ({ count, position }) => {
-  if (count <= 0) return null;
-
-  return (
-    <div 
-      className={`sticky ${position}-0 z-20 w-full text-center py-1 pointer-events-none`}
-    >
-      <span className="text-xs text-gray-500 px-2 py-0.5 rounded-full bg-white bg-opacity-30 backdrop-blur-sm">
-        {count} reservation{count !== 1 ? 's' : ''} {position === 'top' ? 'above' : 'below'}
-      </span>
-    </div>
-  );
-};
 
 // Component for a single reservation blob
 const ReservationBlob: React.FC<ReservationBlobProps> = ({ reservation, style }) => {
@@ -226,9 +206,15 @@ const TimePicker: React.FC<TimePickerProps> = ({
       <div 
         ref={containerRef} 
         className="relative h-[600px] overflow-y-auto bg-white p-6"
-      >
-        {/* Hidden reservations indicator - Top */}
-        <HiddenIndicator count={hiddenAbove} position="top" />
+      > 
+        {/* Hidden reservation indicators */}
+        {hiddenAbove > 0 && (
+          <div className="sticky top-0 z-20 flex justify-center mb-2">
+            <div className="bg-gray-700 text-white text-xs py-1 px-3 rounded-full opacity-80 shadow-sm">
+              {hiddenAbove} more {hiddenAbove === 1 ? 'reservation' : 'reservations'} above
+            </div>
+          </div>
+        )}
         
         {/* Container with padding for spacing around time content */}
         <div className="relative h-[1440px] pt-4 pb-12">
@@ -286,8 +272,14 @@ const TimePicker: React.FC<TimePickerProps> = ({
           </div>
         </div>
         
-        {/* Hidden reservations indicator - Bottom */}
-        <HiddenIndicator count={hiddenBelow} position="bottom" />
+        {/* Bottom indicator */}
+        {hiddenBelow > 0 && (
+          <div className="sticky bottom-0 z-20 flex justify-center mt-2">
+            <div className="bg-gray-700 text-white text-xs py-1 px-3 rounded-full opacity-80 shadow-sm">
+              {hiddenBelow} more {hiddenBelow === 1 ? 'reservation' : 'reservations'} below
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
