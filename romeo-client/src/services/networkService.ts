@@ -1,5 +1,5 @@
 // Types for API responses
-export type dataName = "user" | "reservable" | "reservables" | "reservation" | "reservations" | "constraint" | "constraints";
+export type dataName = "user" | "reservable" | "reservables" | "reservation" | "reservations" | "constraint" | "constraints" | "children";
 
 export interface ApiResponse<T, E = unknown> {
   success: boolean;
@@ -94,8 +94,6 @@ class NetworkService {
 
       const response = await fetch(url, options);
       const data: ApiResponse<T> = await response.json();
-
-      console.log('API response:', data);
 
       // If the response contains a token inside data, store it
       if (data.data?.token) {

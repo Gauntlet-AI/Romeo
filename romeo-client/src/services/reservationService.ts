@@ -14,13 +14,13 @@ export interface ReservationResponse {
   status: string;
 }
 
-export interface ReservableReservationsResponse {
-  reservations: Reservation[];
-  filters: {
-    start_time: string | null;
-    end_time: string | null;
-  };
-}
+// export interface ReservableReservationsResponse {
+//   reservations: Reservation[];
+//   filters: {
+//     start_time: string | null;
+//     end_time: string | null;
+//   };
+// }
 
 /**
  * Creates a new reservation for a reservable
@@ -55,7 +55,7 @@ export const getReservableReservations = async (
   reservableId: string,
   startTime?: string,
   endTime?: string
-): Promise<ApiResponse<ReservableReservationsResponse>> => {
+): Promise<ApiResponse<Reservation[]>> => {
   if (!reservableId) {
     throw new Error('Reservable ID is required');
   }
@@ -76,7 +76,7 @@ export const getReservableReservations = async (
     endpoint += `?${queryParams.join('&')}`;
   }
 
-  return networkService.get<ReservableReservationsResponse>(endpoint);
+  return networkService.get<Reservation[]>(endpoint);
 };
 
 /**

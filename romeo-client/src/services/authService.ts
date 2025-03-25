@@ -2,17 +2,11 @@ import networkService, { ApiResponse } from '@/services/networkService';
 import { User } from '@/types';
 
 /**
- * Interface for login request payload
+ * Interface for decoded user
  */
-export interface LoginRequest {
-  email: string;
-}
-
-/**
- * Interface for verify response
- */
-export interface VerifyResponse {
-  user: User;
+export interface decodedUser extends User {
+  exp: number;
+  iat: number;
 }
 
 /**
@@ -36,13 +30,25 @@ export const login = async (email: string): Promise<ApiResponse<void>> => {
  * @param token The token from the magic link
  * @returns Promise with the user data and JWT token
  */
-export const verify = async (token: string): Promise<ApiResponse<VerifyResponse>> => {
+export const verify = async (token: string): Promise<ApiResponse<User>> => {
   if (!token) {
     throw new Error('Token is required');
   }
 
   // Make the verify request
-  return networkService.get<VerifyResponse>(`/auth/verify?token=${encodeURIComponent(token)}`);
+  return networkService.get<User>(`/auth/verify?token=${encodeURIComponent(token)}`);
+};
+
+/**
+ * Verifies a JWT token
+ * @returns Promise with the user data and JWT token
+ */
+export const verifyJWT = async (token: string): Promise<ApiResponse<decodedUser>> => {
+  if (!token) {
+    throw new Error('Token is required');
+  }
+
+  return networkService.get<decodedUser>(`/auth/verifyjwt?token=${encodeURIComponent(token)}`);
 };
 
 /**
@@ -51,6 +57,14 @@ export const verify = async (token: string): Promise<ApiResponse<VerifyResponse>
 export const logout = (): void => {
   // Clear the token from storage
   networkService.clearToken();
+};
+
+/**
+ * Checks if the user is authenticated
+ * @returns Boolean indicating if the user is authenticated
+ */
+export const isAuthenticated = (): boolean => {
+  return networkService.getToken() !== null;
 };
 
 /**
